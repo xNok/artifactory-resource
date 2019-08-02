@@ -11,6 +11,8 @@ if [[ -z $user || -z $request ]]; then
 fi
 
 # Interpolating the json in bash:
-# (. ./test/.env && eval "echo \"$(cat $request | sed 's/"/\\"/g' )\"")
+# (. ./test/.env && eval "echo \"$(cat $request | sed 's/"/\\"/g' )\"") > ./tmp/requests
 
-(. ./test/.env && eval "echo \"$(cat $request | sed 's/"/\\"/g' )\"") | docker run --rm -i $user/artifactory-resource /opt/resource/in
+(. ./test/.env && eval "echo \"$(cat $request | sed 's/"/\\"/g' )\"") | docker run --rm -i \
+    -v "${pwd}/test/artifacts-in:/artifact" \
+    $user/artifactory-resource /opt/resource/in /artifact

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 exec 3>&1 # make stdout available as fd 3 for the result
 exec 1>&2 # redirect all output to stderr for logging
@@ -39,58 +39,16 @@ is_valid 'version' "${version}"
 host=$(strip_last_slash "${host}")
 group_id_path=$(echo "${group_id}" | sed 's/\./\//g')
 
-aql_files="items.find(
-    {\"repo\": \"${repository_id}\"},
-    {\"type\": \"file\"},
-    {\"path\": \"${group_id_path}/${artifact_id}/${version}\"},
-    {\"\$or\": [
-	      {\"name\":{\"\$match\": \"${artifact_id}-${version}.*\"}}"
+jfrog rt config --url=$host --apikey=$api_key --interactive=false
 
-for qualifier in $qualifiers_param; do
-  aql_files="${aql_files},
-        {\"name\":{\"\$match\": \"${artifact_id}-${version}-${qualifier}.*\"}}"
-done
-
-aql_files="${aql_files}
-	    ]
-    }
-)"
-
-result_files=$(curl \
-  -k \
-  -X POST \
-  -H "X-JFrog-Art-Api:${api_key}" \
-  -H "Content-Type:text/plain" \
-  -d "${aql_files}" \
-  --write-out "\n%{http_code}" \
-  --silent \
-  ${host}/api/search/aql)
-
-http_code="${result_files##*$'\n'}"
-req_files=$(echo "${result_files}" | sed '$d')
+jfrog rt dl ${repository_id}/${group_id_path}/${artifact_id}/${version}/ $destination/ --flat
 
 echo "${version}" > $destination/version
 
-if [[ ${http_code} -eq '200' ]]; then
-  length=$(echo ${req_files} | jq '.results|length')
-  for (( i=0; i<$((length)); i++)); do
-    file_name=$(echo ${req_files} | jq -r ".results[${i}].name")
-    echo "Downloading ${file_name}"
-    curl \
-      -k \
-      -H "X-JFrog-Art-Api:${api_key}" \
-      -o "${1}/${file_name}" \
-      --silent \
-      "${host}/${repository_id}/$(echo ${req_files} | jq -r ".results[${i}]|\"\(.path)/\(.name)\"")"
-  done
+# ls does not support --ignore so we need grep, but grep add /n at the end
+## so we need to echo -n later
+files=$(ls -1 $destination | grep -v 'version')
 
-  metadata_folder=$(folder_metadata "${payload}" "${destination}" "${version}")
-  metadata_files=$(echo ${req_files} | jq '[[.results[].name]|to_entries[]|{name: "file_\(.key)", value}]')
-  echo $(echo "\"${version}\"" | jq "{version: {ref: .}, metadata: $(echo ${metadata_folder} | jq ". + ${metadata_files}")}") >&3
-  exit 0
-else
-  echo "Unable to retreive files in artifactory" >&2
-  echo "Request: curl -k -X POST -H 'X-JFrog-Art-Api:*****' -H 'Content-Type:text/plain' -d "${aql_files}" --write-out "\n%{http_code}" --silent ${host}/api/search/aql" >&2
-  echo "Error:${req_files}" >&2
-  exit 1
-fi
+metadata_folder=$(folder_metadata "${payload}" "${destination}" "${version}")
+metadata_files=$(echo -n ${files} | jq -R -s -c 'split(" ")' | jq -r '[to_entries[] | {name: "file_\(.key)", value}]')
+echo $(echo "\"${version}\"" | jq "{version: {ref: .}, metadata: $(echo ${metadata_folder} | jq ". + ${metadata_files}")}") >&3
