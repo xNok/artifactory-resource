@@ -1,0 +1,16 @@
+{
+  "files": 
+    [
+      {
+        "aql": 
+          {
+            "items.find" : 
+               {
+                 "type":"folder",
+                 "repo":{"$eq":"${repository_id}"},
+                 "path":{"$eq":"${group_id_path}/${artifact_id}"}
+               }
+          }
+      }
+    ]
+}

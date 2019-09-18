@@ -15,5 +15,8 @@ test-out:
 test-out-b:
 	bash ./test/out-test.sh ./test/request/out-build_publish.json ${user}
 
+test-out-bp:
+	bash ./test/out-test.sh ./test/request/out-build_promote.json ${user}
+
 test-out-p:
 	bash ./test/out-test.sh ./test/request/out-package_artifact.json ${user}

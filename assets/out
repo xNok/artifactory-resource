@@ -34,6 +34,7 @@ artifact_id=$(jq -r '.source.artifact_id // ""' < ${payload})
 path_param=$(jq -r '.params.path // ""' < ${payload})
 build_publish=$(jq -r '.params.build_publish // empty' < ${payload})
 package_artifact=$(jq -r '.params.package_artifact // empty' < ${payload})
+build_promote=$(jq -r '.params.build_promote // empty' < ${payload})
 
 is_valid 'host' "${host}"
 is_valid 'api_key' "${api_key}"
@@ -84,6 +85,20 @@ if [[ -z "${build_publish}" ]]; then
   cd ${destination}/${path_param}
     jfrog rt upload "*" $repository_id/$group_id_path/$artifact_id/$version/ --flat=false  --exclude-patterns="version;build;_remote.repositories"
   cd ${destination}
+
+elif [[ ! -z "${build_promote}" ]]; then
+
+ # build_promoteparams
+  build_name=$(jq -r '.build_name // empty' <<< ${build_publish})
+  target_repository=$(jq -r '.target_repository // empty' <<< ${build_promote})
+
+  build_number_file=${build_number_file:=${path_param}/build}
+  if [[ -f "${destination}/${build_number_file}" ]]; then
+    build_number=$(cat ${destination}/${build_number_file} | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+  fi  
+  build_number="${build_number:-$BUILD_ID}"
+
+  jfrog rt bpr $build_name $build_number $target_repository --copy
 
 else
 
