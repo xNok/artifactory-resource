@@ -52,24 +52,27 @@ group_id_path=$(echo "${group_id}" | sed 's/\./\//g')
 files=$(find ${destination}/${path_param} -type f -name "*" -not -name "version" -not -name "build" -not -name "_remote.repositories")
 metadata_files='[]'
 
+#Extract packaging configurations
+package_artifact_bin=$(jq -r '.bin // empty' <<< ${package_artifact})
+package_artifact_evidences=$(jq -r '.evidences // empty' <<< ${package_artifact})
+
 for abs_file in $files; do
   file=$(basename ${abs_file})
+  dir=$(dirname ${abs_file})
   if [[ ! -z "${package_artifact}" ]]; then
-    package_artifact_bin=$(jq -r '.bin // empty' <<< ${package_artifact})
-    package_artifact_evidences=$(jq -r '.evidences // empty' <<< ${package_artifact})
+    filename=$(basename -- "$file")
+    packaging="${filename##*.}"
     if [[ ${file} =~ "$package_artifact_bin"  ]]; then
-      filename=$(basename -- "$file")
-      packaging="${filename##*.}"
       echo "Packaging file: ${file} as ${artifact_id}-${version}.$packaging"
-      mv ${destination}/${path_param}/${file} ${destination}/${path_param}/${artifact_id}-${version}.$packaging
-      file=${artifact_id}-${version}
+      mv ${dir}/${file} ${dir}/${artifact_id}-${version}.$packaging
+      file=${artifact_id}-${version}.$packaging
     elif [[ ${file} =~ "$package_artifact_evidences" ]]; then
-      echo "Packaging file: ${file} as ${artifact_id}-${version}-${file}"
-      mv ${destination}/${path_param}/${file} ${destination}/${path_param}/${artifact_id}-${version}-${file}
-      file=${artifact_id}-${version}-${file}
+      echo "Packaging file: ${file} as ${artifact_id}-${version}-${file}.$packaging"
+      mv ${dir}/${file} ${dir}/${artifact_id}-${version}-${file}
+      file=${artifact_id}-${version}-${file}.$packaging
     else
       echo "Removing: ${file}"
-      rm ${destination}/${path_param}/${file}
+      rm ${dir}/${file}
       continue
     fi
   fi
